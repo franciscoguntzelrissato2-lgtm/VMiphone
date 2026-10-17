@@ -1,0 +1,45 @@
+workflows:
+  meta-velha-ios:
+    name: Meta Velha iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Instalar dependências JavaScript
+        script: |
+          cd "$CM_BUILD_DIR"
+          npm install --no-audit --no-fund @capacitor/core@^8 @capacitor/ios@^8 @capacitor/cli@^8
+      - name: Preparar projeto iOS
+        script: |
+          cd "$CM_BUILD_DIR"
+          test -f capacitor.config.json || { echo "capacitor.config.json não encontrado na raiz do repositório"; exit 1; }
+          if [ ! -d ios/App ]; then
+            ./node_modules/.bin/cap add ios --packagemanager SPM
+          fi
+          ./node_modules/.bin/cap sync ios
+      - name: Compilar app iOS sem assinatura
+        script: |
+          xcodebuild \
+            -project "$CM_BUILD_DIR/ios/App/App.xcodeproj" \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$CM_BUILD_DIR/derived_data" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Empacotar IPA para Sideloadly
+        script: |
+          APP_PATH="$CM_BUILD_DIR/derived_data/Build/Products/Release-iphoneos/App.app"
+          test -d "$APP_PATH" || { echo "App.app não foi gerado em $APP_PATH"; exit 1; }
+          mkdir -p "$CM_BUILD_DIR/build/ios/ipa" "$CM_BUILD_DIR/ipa_tmp/Payload"
+          cp -R "$APP_PATH" "$CM_BUILD_DIR/ipa_tmp/Payload/MetaVelha.app"
+          cd "$CM_BUILD_DIR/ipa_tmp"
+          /usr/bin/zip -qry "$CM_BUILD_DIR/build/ios/ipa/MetaVelha-unsigned.ipa" Payload
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
