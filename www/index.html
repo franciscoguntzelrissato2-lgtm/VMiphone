@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10151d">
+  <title>Meta Velha</title>
+  <style>
+    :root{color-scheme:dark;--bg:#10151d;--panel:#1b2430;--ink:#f4f5f7;--muted:#9ca8b7;--lime:#b8f36b;--cyan:#75d9ed;--line:#354252}
+    *{box-sizing:border-box}body{margin:0;min-height:100svh;background:radial-gradient(ellipse at 50% 0,#213043 0,transparent 52%),var(--bg);color:var(--ink);font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;display:flex;justify-content:center;padding:calc(env(safe-area-inset-top) + 22px) 20px calc(env(safe-area-inset-bottom) + 22px)}
+    main{width:min(100%,440px);display:flex;flex-direction:column;align-items:center}.brand{font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--lime);font-weight:800;margin:8px 0 4px}.title{font-size:clamp(38px,12vw,54px);letter-spacing:-.06em;margin:0}.subtitle{color:var(--muted);margin:4px 0 24px;text-align:center}.panel{width:100%;background:rgba(27,36,48,.88);border:1px solid #344152;border-radius:22px;padding:17px;box-shadow:0 18px 48px #0004}.topline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.turn{font-weight:750;font-size:16px}.turn span{color:var(--lime)}select,button{font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:12px;background:#141c26;padding:10px 12px}select{max-width:145px}.score{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}.score div{background:#141c26;border-radius:12px;text-align:center;padding:9px 4px;color:var(--muted);font-size:12px}.score b{display:block;color:var(--ink);font-size:20px;margin-top:2px}.board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;aspect-ratio:1}.cell{border:1px solid #354354;border-radius:18px;background:linear-gradient(145deg,#202b38,#17212c);font-size:clamp(44px,15vw,67px);font-weight:850;display:grid;place-items:center;min-width:0;aspect-ratio:1;transition:transform .12s,border-color .12s}.cell:active{transform:scale(.96)}.cell.x{color:var(--lime)}.cell.o{color:var(--cyan)}.cell.win{border-color:var(--lime);background:#26351f}.actions{display:flex;gap:10px;margin-top:15px}.actions button{flex:1;cursor:pointer;font-weight:700}.primary{background:var(--lime);color:#15200e;border-color:var(--lime)}.note{color:var(--muted);font-size:12px;text-align:center;margin:15px 0 0}.hidden{display:none!important}
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand">jogo rápido • estratégia</div>
+  <h1 class="title">Meta Velha</h1>
+  <p class="subtitle">Três em linha. Quem manda no tabuleiro?</p>
+  <section class="panel" aria-label="Jogo da velha">
+    <div class="topline"><div id="turn" class="turn">Sua vez: <span>X</span></div><select id="mode" aria-label="Modo de jogo"><option value="cpu">Contra a máquina</option><option value="2p">Duas pessoas</option></select></div>
+    <div class="score"><div>Você / X<b id="sx">0</b></div><div>Empates<b id="sd">0</b></div><div>Máquina / O<b id="so">0</b></div></div>
+    <div id="board" class="board" role="grid" aria-label="Tabuleiro 3 por 3"></div>
+    <div class="actions"><button id="reset" class="primary">Nova rodada</button><button id="clear">Zerar placar</button></div>
+  </section>
+  <p class="note">Toque em uma casa para jogar. A máquina usa estratégia para bloquear e vencer.</p>
+</main>
+<script>
+(()=>{
+  const boardEl=document.querySelector('#board'),turnEl=document.querySelector('#turn'),modeEl=document.querySelector('#mode');
+  const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  let cells=Array(9).fill(''),turn='X',done=false,scores={X:0,O:0,D:0};
+  const winner=b=>{for(const line of wins)if(b[line[0]]&&b[line[0]]===b[line[1]]&&b[line[1]]===b[line[2]])return {who:b[line[0]],line};return null};
+  function paint(highlight=[]){boardEl.innerHTML='';cells.forEach((v,i)=>{const btn=document.createElement('button');btn.className='cell'+(v?' '+v.toLowerCase():'')+(highlight.includes(i)?' win':'');btn.textContent=v;btn.setAttribute('role','gridcell');btn.setAttribute('aria-label',v?`Casa ${i+1}: ${v}`:`Casa ${i+1}, vazia`);btn.disabled=!!v||done|| (modeEl.value==='cpu'&&turn==='O');btn.onclick=()=>move(i);boardEl.append(btn)});document.querySelector('#sx').textContent=scores.X;document.querySelector('#so').textContent=scores.O;document.querySelector('#sd').textContent=scores.D}
+  function message(text,mark=''){turnEl.innerHTML=mark?`${text} <span>${mark}</span>`:text}
+  function finish(){const result=winner(cells);if(result){done=true;scores[result.who]++;message(result.who==='X'?'Você venceu!':'O venceu!',result.who);paint(result.line);return true}if(cells.every(Boolean)){done=true;scores.D++;message('Deu velha!');paint();return true}return false}
+  function move(i){if(done||cells[i])return;cells[i]=turn;if(finish())return;turn=turn==='X'?'O':'X';message(modeEl.value==='cpu'&&turn==='O'?'A máquina está pensando…':'Sua vez:',turn);paint();if(modeEl.value==='cpu'&&turn==='O')setTimeout(cpuMove,360)}
+  function scoreMove(b,player,depth){const w=winner(b);if(w)return w.who==='O'?10-depth:depth-10;if(b.every(Boolean))return 0;let best=player==='O'?-Infinity:Infinity;for(let i=0;i<9;i++)if(!b[i]){b[i]=player;const s=scoreMove(b,player==='O'?'X':'O',depth+1);b[i]='';best=player==='O'?Math.max(best,s):Math.min(best,s)}return best}
+  function cpuMove(){if(done||turn!=='O')return;let best=-Infinity,choices=[];for(let i=0;i<9;i++)if(!cells[i]){cells[i]='O';const s=scoreMove(cells,'X',0);cells[i]='';if(s>best){best=s;choices=[i]}else if(s===best)choices.push(i)}const pick=choices[Math.floor(Math.random()*choices.length)];if(pick!==undefined)move(pick)}
+  function reset(){cells=Array(9).fill('');turn='X';done=false;message('Sua vez:','X');paint()}
+  document.querySelector('#reset').onclick=reset;document.querySelector('#clear').onclick=()=>{scores={X:0,O:0,D:0};reset()};modeEl.onchange=reset;paint();
+})();
+</script>
+</body>
+</html>

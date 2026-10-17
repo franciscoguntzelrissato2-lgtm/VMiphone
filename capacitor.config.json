@@ -1,0 +1,8 @@
+{
+  "appId": "com.metavelha.game",
+  "appName": "Meta Velha",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "automatic"
+  }
+}
